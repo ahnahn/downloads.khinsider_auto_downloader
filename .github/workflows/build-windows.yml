@@ -1,0 +1,33 @@
+name: Build Windows EXE
+
+# main 브랜치에 푸시 혹은 PR 될 때마다 실행
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build exe with PyInstaller
+        run: pyinstaller --onefile windows_source_code.py
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-downloader-exe
+          path: dist/windows_source_code.exe
