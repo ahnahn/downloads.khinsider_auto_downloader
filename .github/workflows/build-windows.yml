@@ -1,32 +1,36 @@
-name: Build Windows EXE
+ name: Build Windows EXE
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+ on:
+   push:
+     branches: [ main ]
+   pull_request:
+     branches: [ main ]
 
-jobs:
-  build:
-    runs-on: windows-latest
+ jobs:
+   build:
+     runs-on: windows-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+     steps:
+       - name: Checkout code
+         uses: actions/checkout@v3
 
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+       - name: Setup Python 3.11
+         uses: actions/setup-python@v4
+         with:
+           python-version: '3.11'
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+-      - name: Install PyInstaller
+-        run: pip install pyinstaller
++      - name: Install dependencies
++        run: |
++          pip install -r requirements.txt
++          pip install pyinstaller
 
-      - name: Build EXE
-        run: pyinstaller --onefile windows_source_code.py
+       - name: Build EXE
+         run: pyinstaller --onefile windows_source_code.py
 
-      - name: Upload exe artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-downloader-exe
-          path: dist/windows_source_code.exe
+       - name: Upload exe artifact
+         uses: actions/upload-artifact@v4
+         with:
+           name: windows-downloader-exe
+           path: dist/windows_source_code.exe
