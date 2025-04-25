@@ -5,8 +5,11 @@ import os, time, sys
 from tqdm import tqdm
 import argparse
 import re
+import ctypes
+import ctypes.wintypes
+import traceback
 
-# 실행 파일 위치를 기준 경로로 사용
+# 실행 파일 위치 기준
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
@@ -26,6 +29,30 @@ def parse_args():
     args, _ = p.parse_known_args()
     return args
 
+# 윈도우 작업 표시줄 깜빡이기
+def flash_taskbar():
+    if os.name != "nt":
+        return
+    hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+    if hwnd:
+        class FLASHWINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", ctypes.wintypes.UINT),
+                ("hwnd", ctypes.wintypes.HWND),
+                ("dwFlags", ctypes.wintypes.DWORD),
+                ("uCount", ctypes.wintypes.UINT),
+                ("dwTimeout", ctypes.wintypes.DWORD)
+            ]
+        FLASHW_ALL = 3
+        info = FLASHWINFO(
+            ctypes.sizeof(FLASHWINFO),
+            hwnd,
+            FLASHW_ALL,
+            5,  # 5번 깜빡임
+            0
+        )
+        ctypes.windll.user32.FlashWindowEx(ctypes.byref(info))
+
 def main():
     args = parse_args()
     album_url = args.url or input("앨범 URL을 입력하세요: ").strip()
@@ -37,16 +64,16 @@ def main():
     soup = BeautifulSoup(resp.text, "html.parser")
 
     raw_title = soup.title.string or ""
-    album_title = sanitize(raw_title.replace(" MP3", "").split(" - ")[0])  # 여기!
+    album_title = sanitize(raw_title.replace(" MP3", "").split(" - ")[0])
     out_name = args.out or album_title
     download_dir = os.path.join(BASE_DIR, out_name)
     os.makedirs(download_dir, exist_ok=True)
     print(f"[INFO] 앨범: {album_title}\n[INFO] 저장 폴더: {download_dir}")
 
+    # 이미지 다운로드
     images_dir = os.path.join(download_dir, "images")
     os.makedirs(images_dir, exist_ok=True)
     print("[INFO] 이미지 링크 수집 및 다운로드 시작")
-
     for thumb in tqdm(soup.select("a img"), desc="이미지"):
         a = thumb.find_parent("a", href=True)
         if not a:
@@ -77,6 +104,7 @@ def main():
                         for chunk in r3.iter_content(8192):
                             w.write(chunk)
 
+    # 트랙 테이블 찾기
     table = None
     for tbl in soup.find_all("table"):
         hdr = [th.get_text(strip=True) for th in tbl.find_all("th")]
@@ -84,9 +112,9 @@ def main():
             table = tbl
             break
     if not table:
-        print("[ERROR] 앨범 트랙 테이블을 찾을 수 없습니다.")
-        return
+        raise RuntimeError("앨범 트랙 테이블을 찾을 수 없습니다.")
 
+    # 트랙 링크 수집
     track_links = []
     for row in table.find_all("tr")[1:]:
         tds = row.find_all("td")
@@ -96,35 +124,42 @@ def main():
                 track_links.append(urljoin(album_url, a["href"]))
     print(f"[INFO] 총 {len(track_links)}곡 FLAC 다운로드 시작")
 
+    # 트랙 다운로드
     for link in tqdm(track_links, desc="트랙"):
         time.sleep(1)
-        if link.lower().endswith(".flac"):
-            flac_url = link
-        else:
-            r = session.get(link, headers={"Referer": album_url})
-            r.raise_for_status()
-            tag = BeautifulSoup(r.text, "html.parser").select_one("a[href$='.flac']")
-            if not tag:
-                continue
-            flac_url = urljoin(link, tag["href"])
+        try:
+            if link.lower().endswith(".flac"):
+                flac_url = link
+            else:
+                r = session.get(link, headers={"Referer": album_url})
+                r.raise_for_status()
+                tag = BeautifulSoup(r.text, "html.parser").select_one("a[href$='.flac']")
+                if not tag:
+                    raise RuntimeError(f"FLAC 링크를 찾을 수 없음: {link}")
+                flac_url = urljoin(link, tag["href"])
 
-        fname = sanitize(unquote(os.path.basename(flac_url)))
-        fpath = os.path.join(download_dir, fname)
-        if not os.path.exists(fpath):
-            with session.get(flac_url, headers={"Referer": link}, stream=True) as dl:
-                if dl.status_code == 200:
-                    with open(fpath, "wb") as fw:
-                        for chunk in dl.iter_content(8192):
-                            fw.write(chunk)
+            fname = sanitize(unquote(os.path.basename(flac_url)))
+            fpath = os.path.join(download_dir, fname)
+            if os.path.exists(fpath):
+                continue  # 이미 다운로드된 파일은 건너뜀
+
+            with session.get(flac_url, headers={"Referer": link}, stream=True, timeout=30) as dl:
+                dl.raise_for_status()
+                with open(fpath, "wb") as fw:
+                    for chunk in dl.iter_content(8192):
+                        fw.write(chunk)
+
+        except Exception as e:
+            raise RuntimeError(f"다운로드 실패: {link}\n{str(e)}")
 
     print("✅ 모든 이미지 및 FLAC 다운로드 완료!")
+    flash_taskbar()
 
-# 예외 발생 시 전체 중단
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        import traceback
         print("❌ 오류 발생:", e)
         traceback.print_exc()
+        flash_taskbar()
         input("\n엔터를 눌러 종료합니다...")
