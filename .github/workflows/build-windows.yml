@@ -24,13 +24,13 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: 🚨 Debug: list workspace
+      - name: Debug: list workspace
         run: dir
 
       - name: Build EXE
         run: pyinstaller --onefile windows_source_code.py
 
-      - name: 🚨 Debug: list dist folder
+      - name: Debug: list dist folder
         run: dir dist
 
       - name: Upload exe artifact
