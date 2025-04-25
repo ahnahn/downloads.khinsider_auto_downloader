@@ -28,7 +28,7 @@ jobs:
         run: dir
 
       - name: Build EXE
-        run: pyinstaller --onefile --collect-all requests --collect-all bs4 --collect-all tqdm windows_source_code.py
+        run: pyinstaller --onefile --collect-all requests --collect-all bs4 --collect-all tqdm --collect-all win10toast --hidden-import win10toast windows_source_code.py
 
       - name: Debug list dist folder
         run: dir dist
