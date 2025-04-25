@@ -50,12 +50,15 @@ def flash_taskbar():
         user32.FlashWindowEx(ctypes.byref(info))
 
 def notify_toast(title: str, msg: str, duration: int = 8):
-    toaster.show_toast(title, msg, duration=duration, threaded=True)
+    try:
+        toaster.show_toast(title, msg, duration=duration, threaded=True)
+    except Exception as e:
+        print(f"[경고] 알림 실패: {e}")
 
 def download_album(album_url, custom_out=None):
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
-    resp = session.get(album_url, timeout=30)
+    resp = session.get(album_url, timeout=5)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -82,7 +85,7 @@ def download_album(album_url, custom_out=None):
         if page.lower().endswith((".jpg", ".jpeg", ".png", ".gif")):
             highres_url = page
         else:
-            r2 = session.get(page, headers={"Referer": album_url}, timeout=30)
+            r2 = session.get(page, headers={"Referer": album_url}, timeout=5)
             r2.raise_for_status()
             sub = BeautifulSoup(r2.text, "html.parser")
             img2 = next((img for img in sub.find_all("img")
@@ -94,7 +97,7 @@ def download_album(album_url, custom_out=None):
         fname = sanitize(unquote(os.path.basename(highres_url)))
         fpath = os.path.join(images_dir, fname)
         if not os.path.exists(fpath):
-            r3 = session.get(highres_url, headers={"Referer": page}, stream=True, timeout=30)
+            r3 = session.get(highres_url, headers={"Referer": page}, stream=True, timeout=5)
             r3.raise_for_status()
             with open(fpath, "wb") as w:
                 for chunk in r3.iter_content(8192):
@@ -122,11 +125,11 @@ def download_album(album_url, custom_out=None):
 
     # 4) FLAC 다운로드
     for link in tqdm(track_links, desc="트랙"):
-        time.sleep(2)
+        time.sleep(0.5)
         if link.lower().endswith(".flac"):
             flac_url = link
         else:
-            r = session.get(link, headers={"Referer": album_url}, timeout=30)
+            r = session.get(link, headers={"Referer": album_url}, timeout=5)
             r.raise_for_status()
             tag = BeautifulSoup(r.text, "html.parser").select_one("a[href$='.flac']")
             if not tag:
@@ -138,7 +141,7 @@ def download_album(album_url, custom_out=None):
         if os.path.exists(fpath):
             continue  # 이미 다운로드된 파일 스킵
 
-        r = session.get(flac_url, headers={"Referer": link}, stream=True, timeout=60)
+        r = session.get(flac_url, headers={"Referer": link}, stream=True, timeout=5)
         r.raise_for_status()
         with open(fpath, "wb") as fw:
             for chunk in r.iter_content(8192):
@@ -165,6 +168,6 @@ if __name__ == "__main__":
                     flash_taskbar()
                     notify_toast("Khinsider 다운로더", f"❌ 오류 발생:\n{e}", duration=8)
                     print("\n⚠️ 오류가 발생했지만 같은 URL로 다시 시도합니다...")
-                    time.sleep(2)
+                    time.sleep(0.5)
     except KeyboardInterrupt:
         print("\n종료합니다.")
