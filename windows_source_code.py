@@ -37,7 +37,7 @@ def main():
     soup = BeautifulSoup(resp.text, "html.parser")
 
     raw_title = soup.title.string or ""
-    album_title = sanitize(raw_title.split(" - ")[0])
+    album_title = sanitize(raw_title.replace(" MP3", "").split(" - ")[0])  # 여기!
     out_name = args.out or album_title
     download_dir = os.path.join(BASE_DIR, out_name)
     os.makedirs(download_dir, exist_ok=True)
@@ -97,7 +97,7 @@ def main():
     print(f"[INFO] 총 {len(track_links)}곡 FLAC 다운로드 시작")
 
     for link in tqdm(track_links, desc="트랙"):
-        time.sleep(0.3)
+        time.sleep(1)
         if link.lower().endswith(".flac"):
             flac_url = link
         else:
@@ -119,7 +119,7 @@ def main():
 
     print("✅ 모든 이미지 및 FLAC 다운로드 완료!")
 
-# ✅ 예외 처리 추가
+# 예외 발생 시 전체 중단
 if __name__ == "__main__":
     try:
         main()
