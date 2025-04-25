@@ -51,7 +51,7 @@ def flash_taskbar():
 
 def notify_toast(title: str, msg: str, duration: int = 8):
     try:
-        toaster.show_toast(title, msg, duration=duration, threaded=True)
+        toaster.show_toast(title, msg, duration=duration, threaded=False)
     except Exception as e:
         print(f"[경고] 알림 실패: {e}")
 
