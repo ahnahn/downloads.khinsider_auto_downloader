@@ -8,16 +8,13 @@ import re
 
 # 실행 파일 위치를 기준 경로로 사용
 if getattr(sys, 'frozen', False):
-    # PyInstaller로 빌드된 exe에서
     BASE_DIR = os.path.dirname(sys.executable)
 else:
-    # 스크립트로 실행할 때
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-os.chdir(BASE_DIR)  # 작업 디렉토리를 exe 위치로 변경
+os.chdir(BASE_DIR)
 
 def sanitize(name):
-    # 파일명에 쓸 수 없는 문자는 모두 '-' 로 치환
     return re.sub(r'[\\/:"*?<>|]+', '-', name).strip()
 
 def parse_args():
@@ -29,19 +26,16 @@ def parse_args():
     args, _ = p.parse_known_args()
     return args
 
-
 def main():
     args = parse_args()
     album_url = args.url or input("앨범 URL을 입력하세요: ").strip()
 
-    # 웹 요청 세션 초기화
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
     resp = session.get(album_url)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # 앨범 제목으로 폴더명 결정
     raw_title = soup.title.string or ""
     album_title = sanitize(raw_title.split(" - ")[0])
     out_name = args.out or album_title
@@ -49,7 +43,6 @@ def main():
     os.makedirs(download_dir, exist_ok=True)
     print(f"[INFO] 앨범: {album_title}\n[INFO] 저장 폴더: {download_dir}")
 
-    # 이미지 다운로드
     images_dir = os.path.join(download_dir, "images")
     os.makedirs(images_dir, exist_ok=True)
     print("[INFO] 이미지 링크 수집 및 다운로드 시작")
@@ -59,7 +52,6 @@ def main():
         if not a:
             continue
         href = a["href"]
-        # 관련 없는 앨범 링크 건너뛰기
         if "/game-soundtracks/album/" in href:
             continue
         page = urljoin(album_url, href)
@@ -85,7 +77,6 @@ def main():
                         for chunk in r3.iter_content(8192):
                             w.write(chunk)
 
-    # FLAC 다운로드
     table = None
     for tbl in soup.find_all("table"):
         hdr = [th.get_text(strip=True) for th in tbl.find_all("th")]
@@ -112,7 +103,7 @@ def main():
         else:
             r = session.get(link, headers={"Referer": album_url})
             r.raise_for_status()
-            tag = sub = BeautifulSoup(r.text, "html.parser").select_one("a[href$='.flac']")
+            tag = BeautifulSoup(r.text, "html.parser").select_one("a[href$='.flac']")
             if not tag:
                 continue
             flac_url = urljoin(link, tag["href"])
@@ -128,5 +119,12 @@ def main():
 
     print("✅ 모든 이미지 및 FLAC 다운로드 완료!")
 
+# ✅ 예외 처리 추가
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        print("❌ 오류 발생:", e)
+        traceback.print_exc()
+        input("\n엔터를 눌러 종료합니다...")
