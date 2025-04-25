@@ -2,28 +2,31 @@ name: Build Windows EXE
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - run: pip install pyinstaller
+      - name: Install dependencies
+        run: pip install pyinstaller
 
-      - run: pyinstaller --onefile windows_source_code.py
+      - name: Build EXE
+        run: pyinstaller --onefile windows_source_code.py
 
-      - uses: actions/upload-artifact@v2    # ← v3 에서 에러가 계속 나면 v2 로 다운그레이드
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v3.1.1
         with:
           name: windows-downloader-exe
           path: dist/windows_source_code.exe
